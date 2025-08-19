@@ -1,53 +1,110 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Falcon VR</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <style>
-    body { margin:0; overflow:hidden; background:#000; color:white; font-family:sans-serif; }
-    #app { width:100vw; height:100vh; overflow:hidden; }
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Millennium Falcon WebXR — Mobile Fix</title>
+    <style>
+      :root {
+        --panel-bg: rgba(0,0,0,0.55);
+        --hud-bg: rgba(0,0,0,0.45);
+        --text: #e0f2f1;
+        --accent: #8cf;
+      }
+      html, body { margin: 0; padding: 0; height: 100%; background: #000; touch-action: none; }
+      #app { position: fixed; inset: 0; z-index: 0; }
+      .hud {
+        position: fixed; left: 12px; bottom: 12px; color: #cfd8dc;
+        font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+        background: var(--hud-bg); padding: 10px 12px; border-radius: 10px; pointer-events: none;
+        z-index: 50;
+      }
+      .panel {
+        position: fixed; right: 12px; bottom: calc(env(safe-area-inset-bottom,0) + 184px);
+        color: var(--text);
+        font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+        background: var(--panel-bg); padding: 10px 12px; border-radius: 10px;
+        z-index: 60;
+      }
+      .panel label { display:block; margin-bottom: 6px; }
+      .panel input[type=range] { width: 220px; }
+      .kbd { background:#263238; color:#fff; border-radius:6px; padding:2px 6px; font-weight:600; }
+      #minimap {
+        position: fixed;
+        right: 12px;
+        top: 12px;
+        width: 140px;
+        height: 140px;
+        background: rgba(0,0,0,0.35);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 10px;
+        z-index: 55;
+      }
+      .joystick {
+        position: fixed;
+        width: 160px; height: 160px;
+        border-radius: 50%;
+        border: 1px solid rgba(255,255,255,0.2);
+        background: rgba(255,255,255,0.05);
+        pointer-events: auto;
+        touch-action: none;
+        z-index: 100;
+      }
+      #joyL { left: 12px; bottom: 12px; }
+      #joyR { right: 12px; bottom: 12px; }
+      .knob {
+        position: absolute;
+        width: 56px; height: 56px;
+        margin-left: -28px; margin-top: -28px;
+        left: 50%; top: 50%;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.25);
+        border: 1px solid rgba(255,255,255,0.35);
+        pointer-events: none;
+      }
+      .debug {
+        position: fixed; left: 12px; top: 12px; color: #b2ebf2;
+        font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        background: rgba(0,0,0,0.4); padding: 6px 8px; border-radius: 8px;
+        z-index: 65;
+      }
+      @media (max-width: 720px) {
+        .hud { font-size: 12px; padding: 8px 10px; max-width: 70vw; }
+        .panel { font-size: 12px; padding: 8px 10px; }
+        #minimap { width: 120px; height: 120px; }
+        .panel input[type=range] { width: 180px; }
+      }
+      @media (max-width: 420px) {
+        .hud { display: none; }
+        .panel { right: 12px; bottom: calc(env(safe-area-inset-bottom,0) + 184px); }
+      }
+    </style>
+    <script type="importmap">
+    { "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      } }
+    </script>
+  </head>
+  <body>
+    <canvas id="minimap" width="140" height="140"></canvas>
+    <div id="app"></div>
 
-    /* Joysticks */
-    .joystick {
-      position: absolute;
-      bottom: 60px;
-      width: 120px;
-      height: 120px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.2);
-      touch-action: none;
-      z-index: 20;
-    }
-    #leftJoystick { left: 30px; }
-    #rightJoystick { right: 30px; }
+    <div class="hud" id="hud">
+      <div><strong>Controles:</strong> PC: WASD + mouse • VR: sticks • Mobile: joysticks táctiles</div>
+      <div><span class="kbd">L</span> linterna • botón Enter VR en visor</div>
+    </div>
 
-    /* Botón de horizonte */
-    #horizonBtn {
-      position: absolute;
-      top: 15px;
-      left: 15px;
-      z-index: 25;
-      background: rgba(0,0,0,0.5);
-      color: white;
-      padding: 6px 10px;
-      border-radius: 6px;
-      border: 1px solid white;
-      font-size: 14px;
-    }
-  </style>
-</head>
-<body>
-  <div id="app"></div>
+    <div class="panel">
+      <label for="expo">Exposición: <span id="expoVal">1.6</span></label>
+      <input id="expo" type="range" min="0.6" max="3.0" step="0.05" value="1.6" />
+      <div style="margin-top:8px">Linterna: <span id="lampState">ON</span></div>
+    </div>
 
-  <!-- Joysticks en mobile -->
-  <div id="leftJoystick" class="joystick"></div>
-  <div id="rightJoystick" class="joystick"></div>
+    <div id="joyL" class="joystick" style="display:none"><div class="knob"></div></div>
+    <div id="joyR" class="joystick" style="display:none"><div class="knob"></div></div>
+    <div id="dbg" class="debug" style="display:none">debug</div>
 
-  <!-- Botón auto nivelar -->
-  <button id="horizonBtn">🧭 Nivelar</button>
-
-  <script type="module" src="./main.js"></script>
-</body>
+    <script type="module" src="./main.js"></script>
+  </body>
 </html>
