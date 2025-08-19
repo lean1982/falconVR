@@ -21,30 +21,16 @@ renderer.physicallyCorrectLights = true;
 app.appendChild(renderer.domElement);
 document.body.appendChild(VRButton.createButton(renderer));
 
-// ---------- Cámara y rig ----------
+// ---------- Cámara y rig (base neutra y sin roll) ----------
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 4000);
 camera.up.set(0, 1, 0);
+camera.rotation.order = 'YXZ';   // importante para fijar roll=0 al aplicar pitch
 
 const rig = new THREE.Group();
 rig.position.set(0, 0, -4);
-rig.rotation.set(0, 0, 0);     // estado neutro
+rig.rotation.set(0, 0, 0);       // yaw/pitch/roll del rig a 0
 rig.add(camera);
 scene.add(rig);
-
-// ---------- ¡FIJAR HORIZONTE! ----------
-let yaw = 0, pitch = 0; // usados para desktop/mobile look
-
-function keepHorizonLevel() {
-  // 1) El rig nunca se inclina (roll/pitch = 0)
-  rig.rotation.x = 0;
-  rig.rotation.z = 0;
-
-  // 2) En NO‑XR, la cámara no tiene roll (z=0)
-  if (!renderer.xr.isPresenting) {
-    const e = new THREE.Euler(pitch, yaw, 0, 'YXZ'); // roll fijo en 0
-    camera.quaternion.setFromEuler(e);
-  }
-}
 
 // ---------- Cielo estrellado ----------
 function addStarfield(count = 4000, radius = 1500) {
@@ -93,7 +79,7 @@ loader.load('./assets/falcon.glb',
   (err) => { console.warn('No se pudo cargar falcon.glb', err); }
 );
 
-// ---------- Controladores XR ----------
+// ---------- Controladores XR (sin cambios) ----------
 const controller1 = renderer.xr.getController(0);
 const controller2 = renderer.xr.getController(1);
 rig.add(controller1); rig.add(controller2);
@@ -123,26 +109,33 @@ bladeLight.position.set(0, 0.6, 0); saber.add(bladeLight);
 saber.rotation.x = -Math.PI / 2;
 controllerGrip2.add(saber);
 
-// ---------- Input PC (WASD + mouse para mirar) ----------
-let keys = {};
-document.addEventListener('keydown', e => keys[e.code] = true);
-document.addEventListener('keyup',   e => keys[e.code] = false);
+// ---------- Mouse look: YAW en el RIG, PITCH en la CÁMARA ----------
+let pitch = 0; // guardamos solo pitch; el yaw vive en rig.rotation.y
 
 document.addEventListener('mousemove', e => {
   if (!renderer.xr.isPresenting && document.pointerLockElement === renderer.domElement) {
-    yaw   -= e.movementX * 0.002;
+    // yaw (izq/der) → rig
+    rig.rotation.y -= e.movementX * 0.002;
+
+    // pitch (arriba/abajo) → cámara
     pitch -= e.movementY * 0.002;
     pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
-    // roll SIEMPRE 0
-    camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+    camera.rotation.x = pitch;
+    camera.rotation.y = 0;   // evita drift
+    camera.rotation.z = 0;   // SIN ROLL
   }
 });
 renderer.domElement.addEventListener('click', () => {
   if (!renderer.xr.isPresenting) renderer.domElement.requestPointerLock();
 });
 
+// ---------- Teclado PC (igual que antes) ----------
+let keys = {};
+document.addEventListener('keydown', e => keys[e.code] = true);
+document.addEventListener('keyup',   e => keys[e.code] = false);
+
 function updateKeyboard(dt) {
-  // (mantenemos tu lógica de movimiento tal cual la tengas; solo horizonte cambia)
+  // tu movimiento original; lo mantengo (si después querés, lo pasamos a base de yaw)
   const speed = 3.0;
   const dir = new THREE.Vector3();
   if (keys['KeyW']) dir.z -= 1;
@@ -152,8 +145,7 @@ function updateKeyboard(dt) {
 
   if (dir.lengthSq() > 0) {
     dir.normalize();
-    // Si usás cámara para forward, lo dejamos igual (horizonte se corrige aparte)
-    dir.applyQuaternion(camera.quaternion);
+    dir.applyQuaternion(camera.quaternion); // usa pitch de cámara; no afecta roll
     rig.position.addScaledVector(dir, speed * dt);
   }
 }
@@ -170,10 +162,15 @@ window.addEventListener('resize', onResize);
 renderer.setAnimationLoop(() => {
   const dt = 1/72;
 
-  updateKeyboard(dt);
+  // asegura rig sin inclinación siempre
+  rig.rotation.x = 0;
+  rig.rotation.z = 0;
+  // y la cámara sin roll
+  if (!renderer.xr.isPresenting) {
+    camera.rotation.z = 0;
+  }
 
-  // ¡corregir horizonte cada frame!
-  keepHorizonLevel();
+  updateKeyboard(dt);
 
   renderer.render(scene, camera);
 });
