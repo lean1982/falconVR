@@ -2,44 +2,15 @@
 <html lang="es">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Falcon VR</title>
+    <title>Falcon — baseline limpio</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      html, body { margin:0; padding:0; height:100%; background:#000; touch-action:none; }
+      html, body { margin:0; padding:0; height:100%; background:#000; overflow:hidden; }
       #app { position:fixed; inset:0; }
-
-      /* Mobile joysticks (hidden on desktop) */
-      .joystick {
-        position: fixed;
-        width: 160px; height: 160px;
-        border-radius: 50%;
-        border: 1px solid rgba(255,255,255,0.2);
-        background: rgba(255,255,255,0.06);
-        touch-action: none;
-        z-index: 50;
-      }
-      #joyL { left: 12px; bottom: 12px; }
-      #joyR { right: 12px; bottom: 12px; }
-      .knob {
-        position: absolute;
-        width: 56px; height: 56px;
-        margin-left: -28px; margin-top: -28px;
-        left: 50%; top: 50%;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.28);
-        border: 1px solid rgba(255,255,255,0.35);
-        pointer-events: none;
-      }
-      .hud {
-        position: fixed; left: 12px; top: 12px; color:#cfe8ff;
-        background: rgba(0,0,0,0.4);
-        padding: 6px 10px; border-radius: 8px; font: 12px/1.4 system-ui, sans-serif;
-        z-index: 60;
-      }
-      .btn {
-        position: fixed; left: 12px; top: 56px; z-index: 60;
-        background: rgba(0,0,0,0.5); color:#fff; border:1px solid rgba(255,255,255,0.2);
-        padding:6px 10px; border-radius:8px; font: 13px system-ui, sans-serif;
+      .hint {
+        position:fixed; left:12px; top:12px; color:#cfe8ff;
+        background:rgba(0,0,0,0.45); padding:6px 10px; border-radius:8px;
+        font:12px/1.4 system-ui, sans-serif; z-index:2;
       }
     </style>
     <script type="importmap">
@@ -53,12 +24,7 @@
   </head>
   <body>
     <div id="app"></div>
-    <div class="hud">PC: WASD + mouse • VR: sticks • Mobile: joysticks<br/>🧭 Nivelar: botón o tecla R • Linterna: L</div>
-    <button id="levelBtn" class="btn">🧭 Nivelar</button>
-
-    <div id="joyL" class="joystick" style="display:none"><div class="knob"></div></div>
-    <div id="joyR" class="joystick" style="display:none"><div class="knob"></div></div>
-
+    <div class="hint">Click para capturar mouse • WASD para moverte • Esc para soltar</div>
     <script type="module" src="./main.js"></script>
   </body>
 </html>
