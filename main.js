@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-// ------------------ Escena / Renderer ------------------
+// ---------- Escena / Renderer ----------
 const app = document.getElementById('app');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
@@ -15,29 +15,22 @@ renderer.toneMappingExposure = 1.6;
 renderer.physicallyCorrectLights = true;
 app.appendChild(renderer.domElement);
 
-// ------------------ Cámara con pivotes ------------------
-// Estructura: rig (posición) -> yawPivot (rot Y) -> pitchPivot (rot X) -> camera
+// ---------- Cámara con pivotes (sin roll) ----------
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.01, 4000);
-camera.rotation.order = 'YXZ'; // asegura control de ejes estable
+camera.rotation.order = 'YXZ';
 
-const rig = new THREE.Group();
-rig.position.set(0, 0, 0);
-
-const yawPivot = new THREE.Object3D();      // gira IZQ/DER (yaw)
-const pitchPivot = new THREE.Object3D();    // mira ARR/ABA (pitch)
-
-rig.add(yawPivot);
-yawPivot.add(pitchPivot);
-pitchPivot.add(camera);
-
+const rig = new THREE.Group();            // traslación
+const yawPivot = new THREE.Object3D();    // yaw (Y)
+const pitchPivot = new THREE.Object3D();  // pitch (X)
+rig.add(yawPivot); yawPivot.add(pitchPivot); pitchPivot.add(camera);
 scene.add(rig);
 
-// Bloqueo absoluto de roll (inclinación) desde el inicio
+rig.position.set(0, 0, 0);
 yawPivot.rotation.set(0, 0, 0);
 pitchPivot.rotation.set(0, 0, 0);
 camera.rotation.set(0, 0, 0);
 
-// ------------------ Estrellas (para referencia visual) ------------------
+// ---------- Estrellas ----------
 function addStarfield(count=2000, radius=1200){
   const pos = new Float32Array(count*3);
   for (let i=0;i<count;i++){
@@ -53,87 +46,80 @@ function addStarfield(count=2000, radius=1200){
 }
 addStarfield();
 
-// ------------------ Luces mínimas ------------------
+// ---------- Luces mínimas ----------
 scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-const hemi = new THREE.HemisphereLight(0xbbccee, 0x101018, 1.0); scene.add(hemi);
+scene.add(new THREE.HemisphereLight(0xbbccee, 0x101018, 1.0));
 
-// Linterna (ayuda interior)
-const headlamp = new THREE.SpotLight(0xffffff, 2.0, 25, Math.PI/6, 0.25, 2.0);
-headlamp.position.set(0,0,0);
-camera.add(headlamp); camera.add(headlamp.target);
-headlamp.target.position.set(0,0,-1);
+// ---------- Grupo del modelo con “rotación Z corregible” ----------
+const shipGroup = new THREE.Group();
+scene.add(shipGroup);
 
-// ------------------ Cargar tu GLB ------------------
+// Ángulo Z guardado (nivel del modelo)
+const Z_KEY = 'falcon_model_zdeg';
+let zDegrees = parseFloat(localStorage.getItem(Z_KEY) || '0');
+applyShipZ();
+
+function applyShipZ(){
+  const zRad = THREE.MathUtils.degToRad(zDegrees);
+  shipGroup.rotation.set(0, 0, zRad);
+  const zLabel = document.getElementById('zdeg'); if (zLabel) zLabel.textContent = zDegrees.toFixed(1);
+  // aseguramos que nuestra cadena de cámara no tenga roll
+  yawPivot.rotation.z = 0; pitchPivot.rotation.z = 0; camera.rotation.z = 0;
+}
+
+// Controles para nivelar el modelo
+window.addEventListener('keydown', (e)=>{
+  if (e.key === '[') { zDegrees -= e.shiftKey ? 5 : 1; applyShipZ(); localStorage.setItem(Z_KEY, String(zDegrees)); }
+  if (e.key === ']') { zDegrees += e.shiftKey ? 5 : 1; applyShipZ(); localStorage.setItem(Z_KEY, String(zDegrees)); }
+});
+
+// ---------- Cargar GLB dentro de shipGroup ----------
 const loader = new GLTFLoader();
-loader.load('./assets/falcon.glb', (gltf) => {
+loader.load('./assets/falcon.glb', (gltf)=>{
   const root = gltf.scene;
-  // Aseguramos que EL MODELO no esté rotado raro
-  root.rotation.set(0, 0, 0);
-  root.position.set(0, 0, -5);
-  scene.add(root);
+  // Quitamos cualquier rotación del import (si la hubiera)
+  root.rotation.set(0,0,0);
+  root.position.set(0,0,-5);
+  shipGroup.add(root);
 }, undefined, (err)=>console.warn('No se pudo cargar falcon.glb', err));
 
-// ------------------ Mouse look: Yaw en yawPivot, Pitch en pitchPivot ------------------
+// ---------- Mouse look: YAW en yawPivot, PITCH en pitchPivot ----------
 let pitch = 0;
-const SENS_YAW = 0.002, SENS_PITCH = 0.002;
-
 document.addEventListener('mousemove', (e)=>{
   if (document.pointerLockElement === renderer.domElement) {
-    // yaw: izquierda/derecha
-    yawPivot.rotation.y -= e.movementX * SENS_YAW;
-
-    // pitch: arriba/abajo
-    pitch -= e.movementY * SENS_PITCH;
+    yawPivot.rotation.y -= e.movementX * 0.002;        // yaw sólo en Y
+    pitch -= e.movementY * 0.002;                       // pitch sólo en X
     pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
     pitchPivot.rotation.x = pitch;
-
-    // NUNCA roll:
-    yawPivot.rotation.z = 0;
-    pitchPivot.rotation.z = 0;
-    camera.rotation.z = 0;
+    // Horiz. firme (nunca roll en la cadena)
+    yawPivot.rotation.z = 0; pitchPivot.rotation.z = 0; camera.rotation.z = 0;
   }
 });
 renderer.domElement.addEventListener('click', ()=>renderer.domElement.requestPointerLock());
 
-// ------------------ WASD: mover con base en yaw (no usa pitch) ------------------
+// ---------- WASD con base SOLO en yaw ----------
 let keys = {};
 document.addEventListener('keydown', e=> keys[e.code]=true);
 document.addEventListener('keyup',   e=> keys[e.code]=false);
 
-const tmpV = new THREE.Vector3();
-function forwardVectorFromYaw(){
-  // vector (0,0,-1) rotado solo por yawPivot
-  const fwd = tmpV.set(0,0,-1).applyQuaternion(yawPivot.quaternion);
-  fwd.y = 0; fwd.normalize();
-  return fwd;
+const tmp = new THREE.Vector3();
+function forwardFromYaw(){
+  const fwd = tmp.set(0,0,-1).applyQuaternion(yawPivot.quaternion);
+  fwd.y = 0; fwd.normalize(); return fwd;
 }
-function rightVectorFromYaw(){
-  const right = tmpV.set(1,0,0).applyQuaternion(yawPivot.quaternion);
-  right.y = 0; right.normalize();
-  return right;
+function rightFromYaw(){
+  const r = tmp.set(1,0,0).applyQuaternion(yawPivot.quaternion);
+  r.y = 0; r.normalize(); return r;
 }
-
 function updateKeyboard(dt){
   const speed = 3.0;
-  if (keys['KeyW']) rig.position.addScaledVector(forwardVectorFromYaw(),  speed*dt);
-  if (keys['KeyS']) rig.position.addScaledVector(forwardVectorFromYaw(), -speed*dt);
-  if (keys['KeyA']) rig.position.addScaledVector(rightVectorFromYaw(),   -speed*dt);
-  if (keys['KeyD']) rig.position.addScaledVector(rightVectorFromYaw(),    speed*dt);
+  if (keys['KeyW']) rig.position.addScaledVector(forwardFromYaw(),  speed*dt);
+  if (keys['KeyS']) rig.position.addScaledVector(forwardFromYaw(), -speed*dt);
+  if (keys['KeyA']) rig.position.addScaledVector(rightFromYaw(),   -speed*dt);
+  if (keys['KeyD']) rig.position.addScaledVector(rightFromYaw(),    speed*dt);
 }
 
-// ------------------ Mantener horizonte plano SIEMPRE ------------------
-function lockRollEveryFrame(){
-  yawPivot.rotation.x = 0;           // yawPivot solo rota en Y
-  yawPivot.rotation.z = 0;
-
-  pitchPivot.rotation.y = 0;         // pitchPivot solo rota en X
-  pitchPivot.rotation.z = 0;
-
-  camera.rotation.y = 0;             // la cámara no introduce yaw extra
-  camera.rotation.z = 0;             // sin roll
-}
-
-// ------------------ Resize ------------------
+// ---------- Resize ----------
 function onResize(){
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -141,10 +127,11 @@ function onResize(){
 }
 window.addEventListener('resize', onResize);
 
-// ------------------ Loop ------------------
+// ---------- Loop ----------
 renderer.setAnimationLoop(()=>{
   const dt = 1/72;
+  // sin roll en ningún nodo de la cadena de vista
+  yawPivot.rotation.z = 0; pitchPivot.rotation.z = 0; camera.rotation.z = 0;
   updateKeyboard(dt);
-  lockRollEveryFrame();
   renderer.render(scene, camera);
 });

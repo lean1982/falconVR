@@ -2,16 +2,17 @@
 <html lang="es">
   <head>
     <meta charset="utf-8" />
-    <title>Falcon — baseline limpio</title>
+    <title>Falcon — baseline nivelado</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
       html, body { margin:0; padding:0; height:100%; background:#000; overflow:hidden; }
       #app { position:fixed; inset:0; }
-      .hint {
-        position:fixed; left:12px; top:12px; color:#cfe8ff;
-        background:rgba(0,0,0,0.45); padding:6px 10px; border-radius:8px;
-        font:12px/1.4 system-ui, sans-serif; z-index:2;
+      .hud {
+        position:fixed; left:12px; top:12px; z-index:2;
+        color:#cfe8ff; background:rgba(0,0,0,0.45);
+        padding:6px 10px; border-radius:8px; font:12px/1.4 system-ui, sans-serif;
       }
+      .hud kbd { background:#123; padding:2px 6px; border-radius:4px; border:1px solid #345; }
     </style>
     <script type="importmap">
     {
@@ -24,7 +25,10 @@
   </head>
   <body>
     <div id="app"></div>
-    <div class="hint">Click para capturar mouse • WASD para moverte • Esc para soltar</div>
+    <div class="hud" id="hud">
+      Click para capturar mouse • WASD para moverte • Esc para soltar<br/>
+      Nivelar modelo Z: <kbd>[</kbd>/<kbd>]</kbd> (±1°) • con Shift: (±5°) • Ángulo: <span id="zdeg">0</span>°
+    </div>
     <script type="module" src="./main.js"></script>
   </body>
 </html>
